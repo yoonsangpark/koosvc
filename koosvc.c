@@ -19,6 +19,9 @@
 #define KOOMON_START    _IOR(KOO_IOCTL_MAGIC, 0x1, int32_t*)
 #define KOOMON_STOP     _IOR(KOO_IOCTL_MAGIC, 0x2, int32_t*)
 
+#define BSIZE	100
+#define MSIZE	3
+char buf[BSIZE];
 
 int main(int argc, char** argv)
 {
@@ -31,14 +34,24 @@ int main(int argc, char** argv)
 	}
 
 	/* KOOMON_START */
-	printf("Sending KOOMON_START\n");
+	printf("koosvc : START \n");
 	ret = ioctl(fd, KOOMON_START);
 	printf("ioctl ret val (%d) errno (%d)\n", ret, errno);
+
+	
+	/* KOOMON Reading*/
+	while ( 1 ) {
+
+		printf("koosvc : Reading \n");
+		read(fd, buf, MSIZE );
+		printf(" >> %s\n", buf);
+		
+	}
 	
 	/* KOOMON_STOP */
-	printf("Sending KOOMON_STOP\n");
+	printf("koosvc : STOP \n");
 	ret = ioctl(fd, KOOMON_STOP);
 	printf("ioctl ret val (%d) errno (%d)\n", ret, errno);
-
+	
 	close(fd);
 }
