@@ -14,6 +14,7 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 
+#include "video_record.h"
 
 #define KOO_IOCTL_MAGIC 'K'
 #define KOOMON_START    _IOR(KOO_IOCTL_MAGIC, 0x1, int32_t*)
@@ -48,10 +49,9 @@ int main(int argc, char** argv)
 		
 		
 		/******************************/
-		/* Recoring Video */
+		/* Recording Video */
 		
-		sleep(10); /* 10 Sec */
-
+		nvt_video_record();
 
 		/******************************/
 	}

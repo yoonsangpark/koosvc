@@ -22,7 +22,8 @@ C_CFLAGS	= $(PLATFORM_CFLAGS) $(COMPILE_OPTS) $(WARNING) $(EXTRA_INCLUDE)
 LD_FLAGS	= -L$(HDAL_LIB_PATH) -lhdal -lpthread
 #--------- END OF ENVIRONMENT SETTING -------------
 LIB_NAME = $(MODULE_NAME)
-SRC = koosvc.c
+SRC = koosvc.c video_record.c
+
 
 OBJ = $(SRC:.c=.o)
 
