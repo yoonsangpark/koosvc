@@ -44,8 +44,16 @@ int main(int argc, char** argv)
 
 		printf("koosvc : Reading \n");
 		read(fd, buf, MSIZE );
-		printf(" >> %s\n", buf);
+		//printf(" >> %s\n", buf);
 		
+		
+		/******************************/
+		/* Recoring Video */
+		
+		sleep(10); /* 10 Sec */
+
+
+		/******************************/
 	}
 	
 	/* KOOMON_STOP */
