@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 	/* KOOMON Reading*/
 	while ( 1 ) {
 
-		printf("koosvc : Reading \n");
+		printf("koosvc : Waiting ... \n");
 		read(fd, buf, MSIZE );
 		//printf(" >> %s\n", buf);
 		

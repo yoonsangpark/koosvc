@@ -126,6 +126,7 @@ static HD_RESULT get_cap_caps(HD_PATH_ID video_cap_ctrl, HD_VIDEOCAP_SYSCAPS *p_
 	return ret;
 }
 
+#if 0
 static HD_RESULT get_cap_sysinfo(HD_PATH_ID video_cap_ctrl)
 {
 	HD_RESULT ret = HD_OK;
@@ -135,6 +136,7 @@ static HD_RESULT get_cap_sysinfo(HD_PATH_ID video_cap_ctrl)
 	printf("sys_info.devid =0x%X, cur_fps[0]=%d/%d, vd_count=%llu\r\n", sys_info.dev_id, GET_HI_UINT16(sys_info.cur_fps[0]), GET_LO_UINT16(sys_info.cur_fps[0]), sys_info.vd_count);
 	return ret;
 }
+#endif
 
 static HD_RESULT set_cap_cfg(HD_PATH_ID *p_video_cap_ctrl)
 {
@@ -555,7 +557,7 @@ static void *encode_thread(void *arg)
 		printf("\r\ndump main bitstream to file (%s) ....\r\n", file_path_main);
 	}
 
-	printf("\r\nif you want to stop, enter \"q\" to exit !!\r\n\r\n");
+	//printf("\r\nif you want to stop, enter \"q\" to exit !!\r\n\r\n");
 
 	//--------- pull data test ---------
 	while (p_stream0->enc_exit == 0) {
@@ -591,7 +593,7 @@ static void *encode_thread(void *arg)
 void nvt_video_record(void)
 {
 	HD_RESULT ret;
-	INT key;
+	//INT key;
 	VIDEO_RECORD stream[1] = {0}; //0: main stream
 	UINT32 enc_type = 0;
 	HD_DIM main_dim;
@@ -693,9 +695,15 @@ void nvt_video_record(void)
 	stream[0].flow_start = 1;
 	stream[0].enc_exit = 0;
 
+	//ooSSoo
+	sleep(RECORDING_TIME);
+	stream[0].enc_exit = 1;
+
+#if 0	
 	// query user key
-	printf("Enter q to exit\n");
+	//printf("Enter q to exit\n");
 	while (1) {
+
 		key = GETCHAR();
 		if (key == 'q' || key == 0x3) {
 			// let encode_thread stop loop and exit
@@ -716,7 +724,7 @@ void nvt_video_record(void)
 			get_cap_sysinfo(stream[0].cap_ctrl);
 		}
 	}
-
+#endif
 	// destroy encode thread
 	pthread_join(stream[0].enc_thread_id, NULL);
 
