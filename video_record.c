@@ -37,6 +37,9 @@
 #define GETCHAR()				NVT_EXAMSYS_GETCHAR()
 #endif
 
+#include "video_record.h"
+#include "kooutil.h"
+
 #define DEBUG_MENU 		1
 
 #define CHKPNT			printf("\033[37mCHK: %s, %s: %d\033[0m\r\n",__FILE__,__func__,__LINE__)
@@ -527,7 +530,12 @@ static void *encode_thread(void *arg)
 
 	UINT32 vir_addr_main;
 	HD_VIDEOENC_BUFINFO phy_buf_main;
-	char file_path_main[32] = "/mnt/sd/dump_bs_main.mp4";
+
+	//ooSSoo
+	//char file_path_main[32] = "/mnt/sd/dump_bs_main.mp4";
+	char file_path_main[FILENAME_LEN];
+	getfilename(DEPOT_DIR, file_path_main);
+
 	FILE *f_out_main;
 	#define PHY2VIRT_MAIN(pa) (vir_addr_main + (pa - phy_buf_main.buf_info.phy_addr))
 
