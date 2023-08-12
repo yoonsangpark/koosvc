@@ -696,7 +696,7 @@ void nvt_video_record(void)
 	stream[0].enc_exit = 0;
 
 	//ooSSoo
-	sleep(RECORDING_TIME);
+	sleep(RECORDING_TIME + 1);
 	stream[0].enc_exit = 1;
 
 #if 0	
