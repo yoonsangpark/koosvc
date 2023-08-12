@@ -54,6 +54,9 @@ int main(int argc, char** argv)
 		nvt_video_record();
 
 		/******************************/
+
+
+		printf("\n\n\n\n");
 	}
 	
 	/* KOOMON_STOP */

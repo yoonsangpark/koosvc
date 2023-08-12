@@ -18,6 +18,6 @@ void getfilename(char* dirname, char* filename)
 
 	sprintf(filename, "%s%04d-%02d%02d-%02d%02d-%02d.mp4", dirname, ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
 
-	printf("%s\n", filename);
+	//printf("%s\n", filename);
 }
 
