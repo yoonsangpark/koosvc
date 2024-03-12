@@ -26,7 +26,7 @@
 #define MAIN(argc, argv) 		int main(int argc, char** argv)
 #define GETCHAR()				getchar()
 #else
-#include <FreeRTOS_POSIX.h>	
+#include <FreeRTOS_POSIX.h>
 #include <FreeRTOS_POSIX/pthread.h> //for pthread API
 #include <kwrap/util.h>		//for sleep API
 #define sleep(x)    			vos_util_delay_ms(1000*(x))
@@ -66,24 +66,28 @@
 //NVX: YUV compress
 #define YUV_COMPRESS_RATIO 75
 #define VDO_NVX_BUFSIZE(w, h, pxlfmt)	(VDO_YUV_BUFSIZE(w, h, pxlfmt) * YUV_COMPRESS_RATIO / 100)
- 
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define SEN_OUT_FMT		HD_VIDEO_PXLFMT_RAW12
 #define CAP_OUT_FMT		HD_VIDEO_PXLFMT_RAW12
-#define CA_WIN_NUM_W		34
-#define CA_WIN_NUM_H		34
-#define LA_WIN_NUM_W		34
-#define LA_WIN_NUM_H		34
-#define VA_WIN_NUM_W		18
-#define VA_WIN_NUM_H		18
+#define CA_WIN_NUM_W		32
+#define CA_WIN_NUM_H		32
+#define LA_WIN_NUM_W		32
+#define LA_WIN_NUM_H		32
+#define VA_WIN_NUM_W		16
+#define VA_WIN_NUM_H		16
 #define YOUT_WIN_NUM_W	128
 #define YOUT_WIN_NUM_H	128
 #define ETH_8BIT_SEL		0 //0: 2bit out, 1:8 bit out
 #define ETH_OUT_SEL		1 //0: full, 1: subsample 1/2
 
-#define VDO_SIZE_W		2960
-#define VDO_SIZE_H		1664
+		
+#define VDO_SIZE_W		1920
+#define VDO_SIZE_H		1080
+//GC5603
+//#define VDO_SIZE_W		2960
+//#define VDO_SIZE_H		1664
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -98,12 +102,12 @@ static HD_RESULT mem_init(void)
 	mem_cfg.pool_info[0].blk_size = DBGINFO_BUFSIZE()+VDO_RAW_BUFSIZE(VDO_SIZE_W, VDO_SIZE_H, CAP_OUT_FMT)
 														+VDO_CA_BUF_SIZE(CA_WIN_NUM_W, CA_WIN_NUM_H)
 														+VDO_LA_BUF_SIZE(LA_WIN_NUM_W, LA_WIN_NUM_H);
-	mem_cfg.pool_info[0].blk_cnt = 3;
+	mem_cfg.pool_info[0].blk_cnt = 2;
 	mem_cfg.pool_info[0].ddr_id = DDR_ID0;
 	// config common pool (main)
 	mem_cfg.pool_info[1].type = HD_COMMON_MEM_COMMON_POOL;
 	mem_cfg.pool_info[1].blk_size = DBGINFO_BUFSIZE()+VDO_YUV_BUFSIZE(VDO_SIZE_W, VDO_SIZE_H, HD_VIDEO_PXLFMT_YUV420);
-	mem_cfg.pool_info[1].blk_cnt = 4;
+	mem_cfg.pool_info[1].blk_cnt = 3;
 	mem_cfg.pool_info[1].ddr_id = DDR_ID0;
 
 	ret = hd_common_mem_init(&mem_cfg);
@@ -136,7 +140,7 @@ static HD_RESULT get_cap_sysinfo(HD_PATH_ID video_cap_ctrl)
 	printf("sys_info.devid =0x%X, cur_fps[0]=%d/%d, vd_count=%llu\r\n", sys_info.dev_id, GET_HI_UINT16(sys_info.cur_fps[0]), GET_LO_UINT16(sys_info.cur_fps[0]), sys_info.vd_count);
 	return ret;
 }
-#endif
+# endif
 
 static HD_RESULT set_cap_cfg(HD_PATH_ID *p_video_cap_ctrl)
 {
@@ -144,13 +148,20 @@ static HD_RESULT set_cap_cfg(HD_PATH_ID *p_video_cap_ctrl)
 	HD_VIDEOCAP_DRV_CONFIG cap_cfg = {0};
 	HD_PATH_ID video_cap_ctrl = 0;
 	HD_VIDEOCAP_CTRL iq_ctl = {0};
+	char *chip_name = getenv("NVT_CHIP_ID");
 
 	//snprintf(cap_cfg.sen_cfg.sen_dev.driver_name, HD_VIDEOCAP_SEN_NAME_LEN-1, "nvt_sen_imx290");
-	snprintf(cap_cfg.sen_cfg.sen_dev.driver_name, HD_VIDEOCAP_SEN_NAME_LEN-1, "nvt_sen_gc5603");
+	//snprintf(cap_cfg.sen_cfg.sen_dev.driver_name, HD_VIDEOCAP_SEN_NAME_LEN-1, "nvt_sen_gc5603");
+	snprintf(cap_cfg.sen_cfg.sen_dev.driver_name, HD_VIDEOCAP_SEN_NAME_LEN-1, "nvt_sen_imx307");
+	
 	cap_cfg.sen_cfg.sen_dev.if_type = HD_COMMON_VIDEO_IN_MIPI_CSI;
 	cap_cfg.sen_cfg.sen_dev.pin_cfg.pinmux.sensor_pinmux =  0x220; //PIN_SENSOR_CFG_MIPI | PIN_SENSOR_CFG_MCLK
 	cap_cfg.sen_cfg.sen_dev.pin_cfg.pinmux.serial_if_pinmux = 0x301;//PIN_MIPI_LVDS_CFG_CLK2 | PIN_MIPI_LVDS_CFG_DAT0|PIN_MIPI_LVDS_CFG_DAT1 | PIN_MIPI_LVDS_CFG_DAT2 | PIN_MIPI_LVDS_CFG_DAT3
-	cap_cfg.sen_cfg.sen_dev.pin_cfg.pinmux.cmd_if_pinmux = 0x10;//PIN_I2C_CFG_CH2
+	if (chip_name != NULL && strcmp(chip_name, "CHIP_NA51089") == 0) {
+		cap_cfg.sen_cfg.sen_dev.pin_cfg.pinmux.cmd_if_pinmux = 0x01;//PIN_I2C_CFG_CH1
+	} else {
+		cap_cfg.sen_cfg.sen_dev.pin_cfg.pinmux.cmd_if_pinmux = 0x10;//PIN_I2C_CFG_CH2
+	}
 	cap_cfg.sen_cfg.sen_dev.pin_cfg.clk_lane_sel = HD_VIDEOCAP_SEN_CLANE_SEL_CSI0_USE_C0;
 	cap_cfg.sen_cfg.sen_dev.pin_cfg.sen_2_serial_pin_map[0] = 0;
 	cap_cfg.sen_cfg.sen_dev.pin_cfg.sen_2_serial_pin_map[1] = 1;
@@ -178,7 +189,7 @@ static HD_RESULT set_cap_param(HD_PATH_ID video_cap_path, HD_DIM *p_dim)
 	{//select sensor mode, manually or automatically
 		HD_VIDEOCAP_IN video_in_param = {0};
 
-		video_in_param.sen_mode = HD_VIDEOCAP_SEN_MODE_AUTO; //auto select sensor mode by the parameter of HD_VIDEOCAP_PARAM_OUT
+		video_in_param.sen_mode = 4; //auto select sensor mode by the parameter of HD_VIDEOCAP_PARAM_OUT
 		video_in_param.frc = HD_VIDEO_FRC_RATIO(30,1);
 		video_in_param.dim.w = p_dim->w;
 		video_in_param.dim.h = p_dim->h;
@@ -376,7 +387,7 @@ static HD_RESULT set_enc_param(HD_PATH_ID video_enc_path, HD_DIM *p_dim, UINT32 
 			video_out_param.codec_type         = HD_CODEC_TYPE_H264;
 			video_out_param.h26x.profile       = HD_H264E_HIGH_PROFILE;
 			video_out_param.h26x.level_idc     = HD_H264E_LEVEL_5_1;
-			video_out_param.h26x.gop_num       = 15;
+			video_out_param.h26x.gop_num       = 50;
 			video_out_param.h26x.ltr_interval  = 0;
 			video_out_param.h26x.ltr_pre_ref   = 0;
 			video_out_param.h26x.gray_en       = 0;
@@ -595,7 +606,7 @@ void nvt_video_record(void)
 	HD_RESULT ret;
 	//INT key;
 	VIDEO_RECORD stream[1] = {0}; //0: main stream
-	UINT32 enc_type = 0;
+	UINT32 enc_type = 1;
 	HD_DIM main_dim;
 
 	// init hdal

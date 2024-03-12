@@ -7,7 +7,8 @@
  */
 
 #define RECORDING_TIME	5 /* Secs */
-#define DEPOT_DIR	"/mnt/sd/recordings/"
+//#define DEPOT_DIR	"/mnt/sd/recordings/"
+#define DEPOT_DIR	"/mnt/sd/"
 
 
 #define FILENAME_LEN	1024
