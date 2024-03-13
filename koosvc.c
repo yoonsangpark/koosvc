@@ -19,6 +19,8 @@
 #define KOO_IOCTL_MAGIC 'K'
 #define KOOMON_START    _IOR(KOO_IOCTL_MAGIC, 0x1, int32_t*)
 #define KOOMON_STOP     _IOR(KOO_IOCTL_MAGIC, 0x2, int32_t*)
+#define KOOMON_PWR_ON   _IOR(KOO_IOCTL_MAGIC, 0x3, int32_t*)
+#define KOOMON_PWR_OFF  _IOR(KOO_IOCTL_MAGIC, 0x4, int32_t*)
 
 #define BSIZE	100
 #define MSIZE	3
@@ -47,14 +49,14 @@ int main(int argc, char** argv)
 		read(fd, buf, MSIZE );
 		//printf(" >> %s\n", buf);
 		
-		
+		ret = ioctl(fd, KOOMON_PWR_ON);
 		/******************************/
 		/* Recording Video */
 		
 		nvt_video_record();
 
 		/******************************/
-
+		ret = ioctl(fd, KOOMON_PWR_OFF);
 
 		printf("\n\n\n\n");
 	}
