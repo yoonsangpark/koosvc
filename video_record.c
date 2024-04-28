@@ -17,8 +17,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-#include "hdal.h"
-#include "hd_debug.h"
+//#include "hdal.h"
+//#include "hd_debug.h"
 
 // platform dependent
 #if defined(__LINUX)
@@ -37,8 +37,11 @@
 #define GETCHAR()				NVT_EXAMSYS_GETCHAR()
 #endif
 
+#include "koocomm.h"
 #include "video_record.h"
 #include "kooutil.h"
+
+#include "osg.h"
 
 #define DEBUG_MENU 		1
 
@@ -91,6 +94,73 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef KOO_OSG
+static HD_RESULT mem_init(UINT32 stamp_size)
+{
+	HD_RESULT              ret;
+	HD_COMMON_MEM_INIT_CONFIG mem_cfg = {0};
+
+	if(!stamp_size){
+		printf("size of osg buffer is unknown\n");
+		return -1;
+	}
+
+	// config common pool (cap)
+	mem_cfg.pool_info[0].type = HD_COMMON_MEM_COMMON_POOL;
+	mem_cfg.pool_info[0].blk_size = DBGINFO_BUFSIZE()+VDO_RAW_BUFSIZE(VDO_SIZE_W, VDO_SIZE_H, CAP_OUT_FMT)
+														+VDO_CA_BUF_SIZE(CA_WIN_NUM_W, CA_WIN_NUM_H)
+														+VDO_LA_BUF_SIZE(LA_WIN_NUM_W, LA_WIN_NUM_H);
+	mem_cfg.pool_info[0].blk_cnt = 2;
+	mem_cfg.pool_info[0].ddr_id = DDR_ID0;
+	// config common pool (main)
+	mem_cfg.pool_info[1].type = HD_COMMON_MEM_COMMON_POOL;
+	mem_cfg.pool_info[1].blk_size = DBGINFO_BUFSIZE()+VDO_YUV_BUFSIZE(VDO_SIZE_W, VDO_SIZE_H, HD_VIDEO_PXLFMT_YUV420);
+	mem_cfg.pool_info[1].blk_cnt = 3;
+	mem_cfg.pool_info[1].ddr_id = DDR_ID0;
+
+	// config common pool (osg)
+	mem_cfg.pool_info[2].type = HD_COMMON_MEM_OSG_POOL;
+	mem_cfg.pool_info[2].blk_size = stamp_size;
+	mem_cfg.pool_info[2].blk_cnt = 1;
+	mem_cfg.pool_info[2].ddr_id = DDR_ID0;
+
+	ret = hd_common_mem_init(&mem_cfg);
+	return ret;
+}
+
+static unsigned int mem_alloc(UINT32 stamp_size, UINT32 *stamp_blk, UINT32 *stamp_pa)
+{
+	UINT32                  pa;
+	HD_COMMON_MEM_VB_BLK    blk;
+
+	if(!stamp_size){
+		printf("stamp_size is unknown\n");
+		return -1;
+	}
+
+	//get osd stamps' block
+	blk = hd_common_mem_get_block(HD_COMMON_MEM_OSG_POOL, stamp_size, DDR_ID0);
+	if (blk == HD_COMMON_MEM_VB_INVALID_BLK) {
+		printf("get block fail\r\n");
+		return -1;
+	}
+
+	if(stamp_blk)
+		*stamp_blk = blk;
+
+	//translate stamp block to physical address
+	pa = hd_common_mem_blk2pa(blk);
+	if (pa == 0) {
+		printf("blk2pa fail, blk = 0x%x\r\n", blk);
+		return -1;
+	}
+
+	if(stamp_pa)
+		*stamp_pa = pa;
+
+	return 0;
+}
+#else
 
 static HD_RESULT mem_init(void)
 {
@@ -113,6 +183,7 @@ static HD_RESULT mem_init(void)
 	ret = hd_common_mem_init(&mem_cfg);
 	return ret;
 }
+#endif/* KOO_OSG */
 
 static HD_RESULT mem_exit(void)
 {
@@ -443,6 +514,7 @@ static HD_RESULT set_enc_param(HD_PATH_ID video_enc_path, HD_DIM *p_dim, UINT32 
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#if 0
 typedef struct _VIDEO_RECORD {
 
 	// (1)
@@ -467,10 +539,14 @@ typedef struct _VIDEO_RECORD {
 
 	// (4) user pull
 	pthread_t  enc_thread_id;
+#ifdef KOO_OSG
+	pthread_t  osg_thread_id;
+#endif/* KOO_OSG */	
 	UINT32     enc_exit;
 	UINT32     flow_start;
 
 } VIDEO_RECORD;
+#endif
 
 static HD_RESULT init_module(void)
 {
@@ -507,6 +583,11 @@ static HD_RESULT open_module(VIDEO_RECORD *p_stream, HD_DIM* p_proc_max_dim)
 	if ((ret = hd_videoenc_open(HD_VIDEOENC_0_IN_0, HD_VIDEOENC_0_OUT_0, &p_stream->enc_path)) != HD_OK)
 		return ret;
 
+#ifdef KOO_OSG
+	if((ret = hd_videoenc_open(HD_VIDEOENC_0_IN_0, HD_STAMP_0, &p_stream->enc_stamp_path)) != HD_OK)
+		return ret;
+#endif/* KOO_OSG */
+
 	return HD_OK;
 }
 
@@ -519,6 +600,10 @@ static HD_RESULT close_module(VIDEO_RECORD *p_stream)
 		return ret;
 	if ((ret = hd_videoenc_close(p_stream->enc_path)) != HD_OK)
 		return ret;
+#ifdef KOO_OSG
+	if((ret = hd_videoenc_close(p_stream->enc_stamp_path)) != HD_OK)
+		return ret;
+#endif/* KOO_OSG */
 	return HD_OK;
 }
 
@@ -609,6 +694,24 @@ void nvt_video_record(void)
 	UINT32 enc_type = 1;
 	HD_DIM main_dim;
 
+#ifdef KOO_OSG
+	init_font();
+
+	if(create_datetime_image("KOO :")){
+		printf("fail to create datetime image\n");
+		return;
+	}
+
+	// init stamp data
+	stream[0].stamp_blk  = 0;
+	stream[0].stamp_pa   = 0;
+	stream[0].stamp_size = query_osg_buf_size();
+	if(stream[0].stamp_size <= 0){
+		printf("query_osg_buf_size() fail\n");
+		return;
+	}
+#endif/* KOO_OSG */
+
 	// init hdal
 	ret = hd_common_init(0);
 	if (ret != HD_OK) {
@@ -617,7 +720,11 @@ void nvt_video_record(void)
 	}
 
 	// init memory
+#ifdef KOO_OSG
+	ret = mem_init(stream[0].stamp_size);
+#else
 	ret = mem_init();
+#endif/* KOO_OSG */
 	if (ret != HD_OK) {
 		printf("mem fail=%d\n", ret);
 		goto exit;
@@ -638,6 +745,27 @@ void nvt_video_record(void)
 		printf("open fail=%d\n", ret);
 		goto exit;
 	}
+
+#ifdef KOO_OSG
+	ret = mem_alloc(stream[0].stamp_size, &(stream[0].stamp_blk), &(stream[0].stamp_pa));
+	if(ret){
+		printf("fail to allocate stamp buffer\n");
+		goto exit;
+	}
+
+	//setup enc stamp parameter
+	if(set_enc_stamp_param(stream[0].enc_stamp_path, stream[0].stamp_pa, stream[0].stamp_size)){
+		printf("fail to set enc stamp\r\n");
+		goto exit;
+	}
+
+	//render enc stamp
+	ret = hd_videoenc_start(stream[0].enc_stamp_path);
+	if (ret != HD_OK) {
+		printf("start enc stamp fail=%d\n", ret);
+		goto exit;
+	}
+#endif/* KOO_OSG */	
 
 	// get videocap capability
 	ret = get_cap_caps(stream[0].cap_ctrl, &stream[0].cap_syscaps);
@@ -695,6 +823,15 @@ void nvt_video_record(void)
 		goto exit;
 	}
 
+#ifdef KOO_OSG
+	// create osg_thread 
+	ret = pthread_create(&stream[0].osg_thread_id, NULL, osg_thread, (void *)stream);
+	if (ret < 0) {
+		printf("create encode thread failed");
+		goto exit;
+	}
+#endif/* KOO_OSG */
+
 	// start video_record modules (main)
 	hd_videocap_start(stream[0].cap_path);
 	hd_videoproc_start(stream[0].proc_path);
@@ -739,6 +876,10 @@ void nvt_video_record(void)
 	// destroy encode thread
 	pthread_join(stream[0].enc_thread_id, NULL);
 
+#ifdef KOO_OSG
+	pthread_join(stream[0].osg_thread_id, NULL);
+#endif/* KOO_OSG */	
+
 	// stop video_record modules (main)
 	hd_videocap_stop(stream[0].cap_path);
 	hd_videoproc_stop(stream[0].proc_path);
@@ -749,6 +890,9 @@ void nvt_video_record(void)
 	hd_videoproc_unbind(HD_VIDEOPROC_0_OUT_0);
 
 exit:
+#ifdef KOO_OSG
+	exit_font();
+#endif/* KOO_OSG */
 	// close video_record modules (main)
 	ret = close_module(&stream[0]);
 	if (ret != HD_OK) {
@@ -760,7 +904,11 @@ exit:
 	if (ret != HD_OK) {
 		printf("exit fail=%d\n", ret);
 	}
-
+#ifdef KOO_OSG
+	if(stream[0].stamp_blk)
+		if(HD_OK != hd_common_mem_release_block(stream[0].stamp_blk))
+			printf("hd_common_mem_release_block() fail\n");
+#endif/* KOO_OSG */
 	// uninit memory
 	ret = mem_exit();
 	if (ret != HD_OK) {
